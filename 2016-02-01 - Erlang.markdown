@@ -1,0 +1,162 @@
+# Erlang
+
+Different parts of your program runs independently from each other - not sharing any state. They communicate with each other using messages.
+
+OTP = Open Telecom Platform. Contains "proven" libraries mainly geared towards telecom systems, but also used in web programming.
+
+## Expressions
+
+`not`, `andalso`, `orelse` for `!`, `&&`, `||`
+
+## Evaluation of expressions
+
+*Works exacly like in Java*
+
+Evaluation continues until a *value* is reached.
+
+`3 + (2 * 4)` -> `3 + 8` -> `11`.
+
+## Boolean expressions
+
+`andalso` has higher precedence than `orelse`. This means that `andalso` will always be interpreted before `orelse` in boolean expressions.
+
+## Functions
+
+    % This is a comment.
+    g(N) -> N + 2.
+
+Variables always start with a capital letter.
+
+## Evaluation of functions
+
+`g(3) * g(1)` -> `(3 + 2) * g(1)` -> `5 * g(1)` -> `5 * (1 + 2)` -> `5 * 3` -> `15`
+
+The order of function evaluations are not guaranteed. The execution order **does not always follow** left-to-right. Only `andalso` and `orelse` have a defined order of evaluation.
+
+## Multiple clauses
+
+    h(2) -> 4;
+    h(3) -> 6;
+    h(N) -> N - 1.
+
+`2`, `3`, `N` is a *pattern*. This is kind of like a variable, but not exactly (since it can take constant values). When executing a function with multiple clauses, the arguments passed to the function are matched to these patterns. The first one that matches gets executed. **Order matters!**
+
+## Repeated variables
+
+    myequal(N, N) -> true;
+    myequal(N, M) -> false.
+
+## Guards
+
+Boolean expression associated with a clause.
+
+    h2(1)            -> 1;
+    h2(N) when N < 5 -> 3;
+    h2(N)            -> N + 1.
+
+Here `h2(N) when N < 5` gets called when `N` is smaller than 5.
+
+## Recursion
+
+In Erlang you always use recursion to implement loops.
+
+    sum(M, N) when M > N -> 0;
+    sum(M, N)            -> M + sum(M + 1, N).
+
+The recursion uses the second clause when M <= N. When M > N it returns 0. The recursive call will continue until M > N, and the first clause is executed.
+
+When doable you should define the base case last, since it will make the function more efficient. An exception of this is where the general clause is a "catch-all" clause, in which case the base case must be first.
+
+## Tail-recursion
+
+Tail recursion is a special kind of recursion where the recursive call is the only thing in the function. This is sometimes preferred for efficiency.
+
+    sum(M, N, Acc) when M > N -> Acc;
+    sum(M, N, Acc)            -> sum(M + 1, N, Acc + M).
+    
+    % Convenience method
+    sum(M, N) -> sum(M, N, 0).
+
+To achieve something useful with this you often use an accumulating parameter to keep track of the value to return. To make the method easy to use you write a convenience method (a wrapper).
+
+## Multiple statements, variables
+
+    f(X) -> X * 2.
+    
+    g(N) ->
+        Y = f(N - 1),
+        Y + 1.
+
+You can declare that two statements should be executed after one another by separating them with a comma. The statements are either expressions or assignments.
+
+## Data types
+
+There are five different data types in Erlang:
+
+* Numbers
+* Atoms
+* Tuples
+* Lists
+* Strings
+
+### Numbers
+
+Integers or floats.
+
+### Atoms
+
+Constans. Starts with a lower-case letter or is enclosed in single-quotes.
+
+    atom
+    'Atom'
+
+### Tuples
+
+A collection of a fixed number of elements.
+
+    {}
+    {atom, 1337}
+    {atom, {1, 2}, {{atom}, atom}}
+
+### Lists
+
+A collection of a variable number of elements.
+
+    []
+    [1, true]
+    [a, b, c] = [a | [b, c]] = [a | [b | [c]]] = [a | [b | [c|[]]]]
+
+`[X | Y]` - a non-empty list with a first element `X` and the rest of the list `Y`.
+
+### Strings
+
+A list of numbrs with nicer syntax, where each number correspond to an ASCII code. Lists are printed as strings when all numbers they contain correspond to printable characters.
+
+    "This is a string"
+
+## Modelling data
+
+In Erlang you typically model complex data types using named tuples (tuples decorated with atoms)
+
+    {shape, {triangle, 2, 2, 3}, blue} % triangle
+    {node, {key, value, Smaller, Larger}} % binary tree
+
+You can use the decorating atom to pattern match in functions. For example:
+
+    area({square, Side})   -> Side * Side;
+    area({circle, Radius}) -> Radius * Radius * math:pi().
+
+## Calculating the length of a list
+
+Simple recursion:
+
+    len([]) -> 0; % base case
+    len([_ | Tail]) -> 1 + len(Tail). % 1 + length of list with head removed
+
+Tail recursion:
+
+    len([], Acc) -> Acc; % base case
+    len([_ | Tail], Acc) -> len(Tail, Acc + 1).
+    
+    len(List) -> len(List, 0).
+

@@ -1,0 +1,96 @@
+# Monitors
+
+A *Monitor* is like a Java object. It has state, methods and a semaphore attached to it.
+
+A monitor has a lock that you have to unlock before executing one of its methods. This makes sure that **only one** thread is executing on the monitor at the same time.
+
+A monitor has internal conditional variables that are used by threads to wait for events to happen. When you `wait()` for a conditional variable you are put in a queue where you wait for that condition to be signaled. When another thread executes `signal()` on that conditional variable the first thread in the queue gets woken up. If a thread calls `signalAll()` **all** threads that are waiting for the conditional variable are woken.
+
+`signal()` = one waiting thread wakes up
+`signalAll()` = all waiting threads wake up
+
+## Code inside monitor methods almost always follow the same pattern
+
+1. Get lock
+2. Wait for some condition
+3. Do stuff
+4. (Signal)
+5. Unlock lock
+
+## One-slot buffer
+
+We can implement the one-slot buffer using a monitor, where producers *wait* for the buffer to be empty, and the consumers *wait* for the buffer to be full. It is important here to check if the buffer is full before waiting, since you won't be awoken until the conditional variable is signaled.
+
+## Blocking
+
+`await()` can throw `InterruptedException`, but `lock()` can not. The idea is that `await()` can block for a long time, and `lock()` should only block for a short period of time. This means that there is no reason to interrupt the `lock()` method.
+
+**What happens when a thread calls `signal()`? Does it immediately hand over the lock to a waiting process or do it hand it over when it calls `lock.unlock()`?**
+
+## Signalling behaviours
+
+What happens internally in the monitor when a conditional variable is signalled? This depends on the implementation, and there are a few different ways of doing it.
+
+### Original proposal (1974)
+
+* The signalling thread goes to the front of the *boundary queue* (the queue to get *into* the monitor)
+* The unblocked thread (the first in the *waiting queue* (the queue for a conditional variable)) gets to run in the monitor immediately
+
+This means that the thread that is first in the waiting queue gets to execute immediately when the signal comes, and when it has finished executing the signalling thread gets to complete its execution.
+
+### Signal and wait
+
+* The signalling thread goes to the end of the boundary queue
+* The unblocked thread runs in the monitor
+
+This is almost the same as the original proposal. The only difference is that the signalling thread gets to "wait in line" to get back into the monitor, and doesn't get to continue its execution right away.
+
+### Signal and continue (used by Java!)
+
+* The signalling thread continues running until the method is over
+* The unblocked thread joins the end of the boundary queue
+
+Here the waiting thread is not prioritized in any way. It has to wait in line to get back into the monitor like everyone else. The signalling thread continues its execution until it is done, and then the first thread in the boundary queue gets to execute.
+
+This could mean that the condition that was signalled isn't true by the time the awoken thread gets into the monitor. Therefore it has to check again if the condition is still true, and if it isn't it joins the end of the waiting queue once again.
+
+This could mean that a thread can wait for *infinitely* long time, if another threads "steals" the condition before the thread gets to execute. This means that the monitor isn't completely *fair*. This is generally ignored when programming, but you can program your way around it using an additional queue (in some way).
+
+## Monitors in Java
+
+Java doesn't guarantee that the condition is true when you get woken after `await()`. A thread can wake up for any reason, so you have to recheck the condition after being awoken. Just replace `if` with `while` and you're set!
+
+If you have more than one conditional variable you can use `signalAll()` to wake up every thread. The individual threads then check if the condition they require is true, and if it isn't it waits for the next signal.
+
+## Interrupting threads
+
+Done with `thread.interrupt()`.
+
+**If thread is blocked**: Blocking operation throws `InterruptedException`
+**If thread is running**: A flag called *interrupt status* is set. The flag is checked with `interrupted()`.
+
+If a thread is holding semaphores when being interrupted, you often want to release them before killing the thread. To do this you *finalize* the thread in some sort of way, often in a `finally` block.
+
+## Barrier synchronization
+
+*N processes execute, but they all must wait for the slowest one to "catch up" before continuing*
+
+To implement this using a monitor you keep track of the number of threads that have gotten to the barrier. If you are the last thread to get to the barrier (`#threads == #on barrier`) you signal that it is OK to continue. You also have to keep track of which *turn* you are on, so that you don't block on the previous barrier.
+
+    my turn = turn
+    
+    if #on barrier == #threads:
+        signal that it is OK to continue
+        increment turn
+        #on barrier = 0
+    else
+        while #on barrier < #threads && turn == my turn:
+            wait for OK to continue
+
+## Nested monitor calls
+
+If a method in monitor `A` calls a method in monitor `B` we have a nested monitor call. If the call gets blocked in `B` the lock in `A` doesn't get released, which results in a dangerous situation.
+
+One solution to this is to just ban nested monitor calls. This is actually not that unreasonable. You can also release `A`s lock when entering `B`s lock. **How does this work**?
+
+In Java the lock of `A` is maintained when entering `B`. The solution is to split up the operations, so that no nested monitor calls are made.
