@@ -1,0 +1,78 @@
+# Spotify
+
+Niklas Gustavsson
+@protocol7
+ngn@spotify.com
+
+## How can we go faster?
+
+### Branch prediction
+
+The processor tries to predict what code that will be executed after a branch. We can write our code to make use of this to get faster programs.
+
+### Cache lines
+
+The processor tries to prefetch memory into L-cache. If the memory access is sequential this is easier to do. We can write our code to make use of this as well (for example by using ArrayLists instead of LinkedLists). In ArrayLists the pointers are at least sequentially stored (even though if the objects are stored at random places in memory).
+
+In Java 10 (probably) *value objects* will be introduced to Java. This means that we aren't storing a pointer to an object but the actual object. This means we can store everything sequentially in memory. Good performance!
+
+### Lock-less programming
+
+Locks (and synchronization) is costly! If you have too many processes your system gets slow. Luckily there has been research done to create data structures that don't need locks. 
+
+#### RMW
+
+*Atomic operations supported by the CPU*. Things like `AtomicInt`, `AtomicDouble` etc.
+
+These data types uses *CAS* (Compare And Swap or Compare And Set). This lets you read a value, modify it locally in some way, and then write it back to memory if it wasn't changed since read. If it was changed, we retry (stick it in a loop).
+
+### Java memory model
+
+**Look up at wikipedia**
+
+## Concurrent programming models
+
+* Threads
+* **Async, futures, promises**
+* Actors, message passing
+* Reactive
+* ... and many more
+
+### Async
+
+The concurrent model that is primarily used at Spotify.
+
+The traditional model with client server architecture is to start a new thread for each request (the standard way to program web servers). This thread will block until the request is finished (not good!). If there are a shitload of requests the threads will overload the server.
+
+Instead of using this method you can use *promises* or *futures* (essentially the same thing). This is essentially callback programming but with nicer syntax (no more callback hell!). This is widely used in JavaScript and Node.js.
+
+Google has a library for doing this in Java - **Guava**. Especially `ListenableFuture`. There is also `CompletableFuture` in Java 8.
+
+This doesn't block, since you just tell the server to run some code in the future when the promised future value comes back.
+
+Spotify has a framework called [Apollo](https://github.com/spotify/apollo) for doing this.
+
+Instead of having to have thousands of threads (when using the traditional concurrency model) you can run thing asyncly with tens of threads instead. This minimises *context switching* (switching between processes) and the need to flush the caches on each switch.
+
+#### Java NIO
+
+Asyncronous I/O for Java.
+
+#### Async protocols
+
+Spotify doesn't use HTTP for internal requests, instead is uses ZMQ (https://github.com/spotify/netty-zmtp). This makes the entire communication synchronous.
+
+## Limiting concurrency
+
+**Always limit thread pools!**. Unbounded queues are evil. It is often better to just throw an error back to the user when something takes a long time to finish, instead of trying to answer each and every request. This can't be done in every application (banks for example), but Spotify uses it for search for example.
+
+**Always provide proper back pressure!**. This means that you should be able to handle errors in all stages of you applications.
+
+## Further reading
+
+* java.util.concurrent JavaDocs
+* Java Concurrency in Practice (book)
+* Anything by Doug Lea (the creator of java.util.concurrent)
+* Anything by Martin Thompson (@mjpt777)
+* Netty
+
