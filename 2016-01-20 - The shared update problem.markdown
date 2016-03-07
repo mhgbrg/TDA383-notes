@@ -41,9 +41,9 @@ Try to write code where each statement satisfies Limited Critical Rection, for e
 
 *See slides for code*
 
-**Mutex** - At most one thread at a time is in its critical section.
-**No deadlock/livelock** - If both processes attempt to enter their critical section, one will succeeed.
-**No starvation** - A process attempting to enter its critical section will eventually succeed.
+* **Mutex** - At most one thread at a time is in its critical section.
+* **No deadlock/livelock** - If both processes attempt to enter their critical section, one will succeeed.
+* **No  starvation** - A process attempting to enter its critical section will eventually succeed.
 
 ### Showing the mutual exclusion property
 
